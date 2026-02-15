@@ -1,0 +1,12 @@
+docker exec -it laravel_app1 bash
+ping db_master
+
+docker exec -it laravel_app2 bash
+ping db_master
+
+# Remove cache
+php artisan optimize:clear
+
+mysql -h db_master -u laravel -plaravel -D laravel
+
+apt update && apt install -y default-mysql-client

@@ -1,0 +1,98 @@
+version: "3.8"
+
+services:
+  app1:
+    build:
+      context: .
+      dockerfile: ./docker/php/Dockerfile
+    container_name: laravel_app1
+    working_dir: /var/www/app
+    volumes:
+      - ./app1:/var/www/app
+    networks:
+      - laravel
+
+  app2:
+    build:
+      context: .
+      dockerfile: ./docker/php/Dockerfile
+    container_name: laravel_app2
+    working_dir: /var/www/app
+    volumes:
+      - ./app2:/var/www/app
+    networks:
+      - laravel
+
+  nginx1:
+    image: nginx:latest
+    container_name: nginx_app1
+    volumes:
+      - ./app1:/var/www/app
+      - ./docker/nginx/app1.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app1
+    networks:
+      - laravel
+
+  nginx2:
+    image: nginx:latest
+    container_name: nginx_app2
+    volumes:
+      - ./app2:/var/www/app
+      - ./docker/nginx/app2.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app2
+    networks:
+      - laravel
+
+  haproxy:
+    image: haproxy:latest
+    container_name: laravel_haproxy
+    ports:
+      - "8000:80"
+      - "8404:8404"
+    volumes:
+      - ./docker/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+    depends_on:
+      - nginx1
+      - nginx2
+    networks:
+      - laravel
+
+  db_master:
+    image: mysql:8.0
+    container_name: laravel_db_master
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: laravel
+    command: --server-id=1 --log-bin=mysql-bin --binlog-do-db=laravel
+    volumes:
+      - dbdata_master:/var/lib/mysql
+    networks:
+      - laravel
+
+  db_slave:
+    image: mysql:8.0
+    container_name: laravel_db_slave
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: laravel
+    command: --server-id=2 --relay-log=mysql-relay-bin --log-bin=mysql-bin --read-only=1
+    volumes:
+      - dbdata_slave:/var/lib/mysql
+    depends_on:
+      - db_master
+    networks:
+      - laravel
+
+volumes:
+  dbdata_master:
+  dbdata_slave:
+
+networks:
+  laravel:
+    driver: bridge
